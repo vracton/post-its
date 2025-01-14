@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown Post-it Notes</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            animation: fadeIn 1s ease-in-out;
+        }
+
+        #main {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .note {
+            width: 150px;
+            height: 150px;
+            background-color: yellow;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            word-wrap: break-word;
+            transition: 0.3s ease-in-out;
+            position: relative;
+        }
+
+        .note:hover {
+            transform: scale(1.05);
+        }
+
+        .note-title {
+            font-weight: bold;
+        }
+
+        .delete-button {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background-color: red;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            line-height: 20px;
+            text-align: center;
+        }
+
+        .create-button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            background-color: #007BFF;
+            color: white;
+            border-radius: 5px;
+            transition: background-color 0.3s ease-in-out, transform 0.3s ease-in-out;
+        }
+
+        .create-button:hover {
+            background-color: #0056b3;
+            transform: scale(1.05);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div style="text-align: center; margin-bottom: 20px;">
+        <button class="create-button" onclick="createNote()">Create New Note</button>
+    </div>
+    <div id="main"></div>
+
+    <script>
+        const STORAGE_KEY = 'postItNotes';
+
+        function getNotes() {
+            return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+        }
+
+        function saveNotes(notes) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+        }
+
+        function renderNotes() {
+            const main = document.getElementById('main');
+            main.innerHTML = '';
+            const notes = getNotes();
+            notes.forEach((note, index) => {
+                const noteDiv = document.createElement('div');
+                noteDiv.className = 'note';
+                noteDiv.style.backgroundColor = note.color;
+                noteDiv.innerHTML = `<div class="note-title">${note.title || 'Untitled'}</div><div>${note.content.substring(0, 100)}</div>`;
+                noteDiv.onclick = () => openNote(index);
+
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'delete-button';
+                deleteButton.innerHTML = 'X';
+                deleteButton.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteNote(index);
+                };
+
+                noteDiv.appendChild(deleteButton);
+                main.appendChild(noteDiv);
+            });
+        }
+
+        function createNote() {
+            const notes = getNotes();
+            const newNote = {
+                title: '',
+                content: '',
+                color: 'yellow',
+                windowRef: null
+            };
+            notes.push(newNote);
+            saveNotes(notes);
+            const noteIndex = notes.length - 1;
+            openNote(noteIndex);
+        }
+
+        function deleteNote(index) {
+            const notes = getNotes();
+            notes.splice(index, 1);
+            saveNotes(notes);
+            renderNotes();
+        }
+
+        function openNote(index) {
+            const notes = getNotes();
+            const note = notes[index];
+            if (note.windowRef && !note.windowRef.closed) {
+                note.windowRef.focus();
+                return;
+            }
+
+            const noteWindow = window.open('', '', 'width=400,height=400');
+            note.windowRef = noteWindow;
+            window.updateNote = (updatedNote) => {
+                notes[index] = updatedNote;
+                saveNotes(notes);
+                renderNotes();
+            };
+            noteWindow.document.write(`
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Note<\/title>
+                    <style>
+                        * {
+                            transition: background-color 0.3s ease-in-out;
+                        }
+                        body {
+                            font-family: Arial, sans-serif;
+                            margin: 20px;
+                            background-color: ${note.color};
+                            display: flex;
+                            flex-direction: column;
+                            height: 100vh;
+                            animation: fadeIn 0.3s ease-in-out;
+                        }
+
+                        textarea {
+                            flex-grow: 1;
+                            font-size: 14px;
+                            background-color: ${note.color};
+                            border: none;
+                            resize: none;
+                            outline: none;
+                            padding: 10px;
+                            box-sizing: border-box;
+                            transition: background-color 0.3s ease-in-out;
+                        }
+
+                        .controls {
+                            display: flex;
+                            gap: 10px;
+                            margin-bottom: 10px;
+                        }
+
+                        .color-picker {
+                            display: flex;
+                            gap: 5px;
+                        }
+
+                        .color-picker button {
+                            width: 30px;
+                            height: 30px;
+                            border: 2px solid #ccc;
+                            border-radius: 50%;
+                            cursor: pointer;
+                            transition: transform 0.3s ease-in-out;
+                        }
+
+                        .color-picker button:hover {
+                            transform: scale(1.1);
+                        }
+
+                        .toolbar button {
+                            padding: 5px 10px;
+                            font-size: 12px;
+                            cursor: pointer;
+                            border: 1px solid #ccc;
+                            border-radius: 3px;
+                            background-color: white;
+                            transition: background-color 0.3s ease-in-out, transform 0.3s ease-in-out;
+                        }
+
+                        .toolbar button:hover {
+                            background-color: #f0f0f0;
+                            transform: scale(1.05);
+                        }
+
+                        #title {
+                            width: 100%;
+                            padding: 10px;
+                            font-size: 18px;
+                            margin-bottom: 10px;
+                            border: none;
+                            outline: none;
+                            background-color: ${note.color};
+                            color: #555;
+                            box-sizing: border-box;
+                            transition: background-color 0.3s ease-in-out;
+                        }
+
+                        #title::placeholder {
+                            color: #777;
+                        }
+
+                        @keyframes fadeIn {
+                            from {
+                                opacity: 0;
+                            }
+                            to {
+                                opacity: 1;
+                            }
+                        }
+                    <\/style>
+                <\/head>
+                <body>
+                    <input type="text" id="title" value="${note.title}" placeholder="Untitled Note">
+                    <div class="controls">
+                        <div class="color-picker">
+                            <button style="background-color: yellow;" onclick="setColor('yellow')"></button>
+                            <button style="background-color: pink;" onclick="setColor('pink')"></button>
+                            <button style="background-color: lightblue;" onclick="setColor('lightblue')"></button>
+                            <button style="background-color: lightgreen;" onclick="setColor('lightgreen')"></button>
+                        <\/div>
+                    <\/div>
+                    <textarea id="content">${note.content}<\/textarea>
+                    <script>
+                        const noteIndex = ${index};
+                        const mainWindow = window.opener;
+
+                        document.getElementById('title').oninput = function () {
+                            const updatedNote = { ...mainWindow.getNotes()[noteIndex], title: this.value };
+                            mainWindow.updateNote(updatedNote);
+                        };
+
+                        document.getElementById('content').oninput = function () {
+                            const updatedNote = { ...mainWindow.getNotes()[noteIndex], content: this.value };
+                            mainWindow.updateNote(updatedNote);
+                        };
+
+                        function setColor(color) {
+                            document.body.style.backgroundColor = color;
+                            document.getElementById('content').style.backgroundColor = color;
+                            document.getElementById('title').style.backgroundColor = color;
+                            const updatedNote = { ...mainWindow.getNotes()[noteIndex], color };
+                            mainWindow.updateNote(updatedNote);
+                        }
+                    <\/script>
+                <\/body>
+                <\/html>
+            `);
+        }
+
+        renderNotes();
+    </script>
+</body>
+</html>
